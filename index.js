@@ -1,5 +1,5 @@
-const enviroment = process.argv[2];
-if (enviroment != '--test' && enviroment != '--prod') {
+const environment = process.argv[2];
+if (environment != '--test' && environment != '--prod') {
     console.log('No mode specified');
     process.exit(1);
 }
@@ -9,7 +9,7 @@ const secrets = require(__dirname + "/secrets.json");
 const config = require(__dirname + "/config.json");
 
 
-const fastify = require('fastify')({ logger: enviroment == '--test' })
+const fastify = require('fastify')({ logger: environment == '--test' })
 const mariadb = require('mariadb');
 const getUuid = require('uuid-by-string');
 const crypto = require('crypto');
@@ -95,7 +95,7 @@ fastify.post('/api/admin/login', async (req, res) => {
         let token = res.signCookie(JSON.stringify(tokenObject));
         fastify.log.info('Issuing cookie to user', token);
 
-        res.setCookie('token', token, { path: '/', secure: true, sameSite: enviroment == '--test' ? 'strict' : 'none', expires: Date.now() + config.cookieMaxAge });
+        res.setCookie('token', token, { path: '/', secure: true, sameSite: environment == '--test' ? 'strict' : 'none', expires: Date.now() + config.cookieMaxAge });
         fastify.log.info('Admin login procedure succesfull');
         res.code(200).send(tokenObject);
     } catch (exception) {
@@ -1157,7 +1157,7 @@ let verifyToken = (token) => {
         if (sessions[object.uuid] && sessions[object.uuid][object.nonce]) return object;
         return null;
     }
-    else return enviroment == '--test' ? null : 'TEST_ONLY';
+    else return environment == '--test' ? null : 'TEST_ONLY';
 }
 async function saveSessions() {
     await conn.query('UPDATE sessions SET value=? WHERE id=\'sessions\'', JSON.stringify(sessions));
