@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Space+Mono:wght@700&display=swap');
+
+@page {
+    size: A4 portrait;
+    margin: 0;
+}
+
+body {
+    margin: 0;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.page {
+    width: 100%;
+    height: calc(100vh - 1px);
+    overflow: hidden;
+    page-break-inside: avoid;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 9mm;
+    grid-auto-rows: 36mm;
+}
+
+.header {
+    grid-row: 1;
+    grid-column: 1/4;
+    border-bottom: solid black 0.1mm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 3mm;
+    font-size: 12pt;
+}
+
+.header__no-photocopy {
+    text-align: right;
+    font-size: 10pt;
+}
+
+.cell {
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    font-size: 8pt;
+    text-align: center;
+    padding: 3mm;
+}
+
+.cell__left {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.cell__scan-code {
+    line-height: 4mm;
+    margin-bottom: 2.5mm;
+}
+
+.cell__left img {
+    height: calc(100% - 6.5mm);
+}
+
+.cell__right {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-grow: 1;
+}
+
+.cell__or {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.5mm;
+    margin-right: 3mm;
+    margin-left: 4mm;
+    margin-bottom: 0.5mm;
+    align-items: center;
+}
+
+.cell__or-rule {
+    border: none;
+    border-left: 0.1mm dashed #0008;
+    flex-grow: 1;
+}
+
+.cell__or-text {
+    font-size: 7pt;
+    color: #000a;
+    margin: 1mm 0;
+    writing-mode: vertical-lr;
+    line-height: 0;
+}
+
+hr {
+    border: none;
+    border-bottom: 0.1mm dashed #0008;
+    margin: 2mm 1mm;
+}
+
+.cell__url {
+    font-weight: bold;
+    font-size: 8.5pt;
+    line-height: 2;
+}
+
+.cell__token {
+    font-weight: 700;
+    font-size: 14pt;
+    font-family: 'Space Mono', monospace;
+    font-variant-ligatures: none;
+    line-height: 1.5;
+    margin-bottom: 1mm;
+}
+
+.cell__class {
+    margin-top: 1mm;
+}
+
+.cell:not(:nth-child(n+23)) {
+    border-bottom: solid black 0.1mm;
+}
+
+.cell:not(:nth-child(3n+1)) {
+    border-right: solid black 0.1mm;
+}
+
+@media screen {
+    body {
+        background: #eee;
+    }
+
+    .page {
+        margin: 16px auto;
+        background: white;
+        width: 210mm;
+        height: 297mm;
+        box-shadow: 2px 2px 5px #0003;
+    }
+}

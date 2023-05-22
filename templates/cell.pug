@@ -1,0 +1,19 @@
+mixin cell(cell, className)
+    .cell.cell
+        .cell__left
+            .cell__scan-code Zeskanuj kod QR
+            img(src=cell.qrSrc)
+        .cell__or
+            .cell__or-rule
+            .cell__or-text albo
+            .cell__or-rule
+        .cell__right
+            .cell__instructions
+                .cell__help.cell__help--1 Wejdź na stronę
+                .cell__url=self.voteUrl
+                .cell__help.cell__help--2 i wpisz kod dostępu
+                .cell__token=cell.token
+            hr
+            .cell__class
+                | Twoja klasa:#{' '}
+                b=className

@@ -1,0 +1,34 @@
+{
+    "sql": {
+        "host": "localhost",
+        "user": "voter",
+        "password": "xxxxxxxx",
+        "connectionLimit": 5,
+        "database": "voter"
+    },
+    "port": 7878,
+    "allowedPoints": [ -1, 1, 3, 5 ],
+    "allowedTokenChars": "ABCDEFGHJKLMNQPRSTUVWXYZ23456789",
+    "forbiddenTokens": [
+        "DEMO-DEMO",
+        "DEMO-1234",
+        "1234-DEMO",
+        "GOOD-LOOD"
+    ],
+    "cors": {
+        "origin": true,
+        "credentials": true,
+        "maxAge": 3600
+    },
+    "cookieMaxAge": 31536000000,
+    "pdfGeneration": {
+        "pdfLocation": "/home/karol/voter/pdfs/",
+        "pdfLink": "https://voter.karol.gay/api/admin/tokens/pdf/{{uuid}}.pdf",
+        "votingUrl": "https://voter.dk-gl.eu/{{token}}",
+        "votingUrlForUser": "voter.dk-gl.eu",
+        "cardsPerPage": 24,
+        "chromiumPath": "/usr/bin/chromium-browser",
+        "maxTokensOneRequest": 100
+    },
+    "message": "Witaj drogi pentesterze! Jesteśmy otwarci na atakowanie naszego API i uprzejmie prosimy Cię, żebyś zgłaszał nam wszystkie luki, które znajdziesz w systemie. Znajdziesz nas pod adresami k.peszek@v-lo.krakow.pl oraz m.zablocki@v-lo.krakow.pl. Z góry dzięki za pomoc! <3. P. S. Prosimy nie wysyłaj Pana Tadeusza jako token do głosowania"
+}

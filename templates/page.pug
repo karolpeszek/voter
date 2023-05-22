@@ -1,0 +1,11 @@
+include cell
+
+mixin page(page)
+    .page
+        .header
+            div
+                | Kody do głosowania dla klasy#{' '}
+                b=page.className
+            div.header__no-photocopy Nie kseruj tej kartki, kody są jednorazowe
+        each cell in page.tokens
+            +cell(cell, page.className)
