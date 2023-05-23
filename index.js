@@ -1,4 +1,4 @@
-const environment = process.argv[2];
+const environment = process.argv[2] || '--prod';
 if (environment != '--test' && environment != '--prod') {
     console.log('No mode specified');
     process.exit(1);
