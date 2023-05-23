@@ -34,6 +34,7 @@ const start = async () => {
     try {
         conn = await mariadb.createConnection(config.sql);
         await conn.query('USE ' + config.sql.database);
+        await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
         sessions = JSON.parse((await conn.query('SELECT value FROM sessions WHERE id=\'sessions\''))[0].value);
         fastify.log.info('Starting server on port', config.port);
         await fastify.listen({ port: config.port })
@@ -340,13 +341,24 @@ fastify.patch('/api/admin/users/setpassword', async (req, res) => {
 
         let hash = generateHash(user.newPassword, newSalt);
 
-        await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
+        try {
+            await conn.query('START TRANSACTION');
 
-        sessions[user.uuid] = {};
-        saveSessions();
+            await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
 
-        fastify.log.info('User password set procedure succesfull');
-        res.code(202).send();
+            sessions[user.uuid] = {};
+            saveSessions();
+            fastify.log.info('User password set procedure succesfull');
+            res.code(202).send();
+            await conn.query('COMMIT');
+        } catch (exception) {
+            await conn.query('ROLLBACK');
+            throw exception
+        }
+
+
+
+
 
     } catch (exception) {
         fastify.log.error('User password set procedure failed with exception ' + exception);
@@ -376,29 +388,35 @@ fastify.delete('/api/admin/setup/resetall', async (req, res) => {
         fastify.log.info('Starting reset all procedure');
         if (!verifyToken(req.cookies.token)) throw 'USER_NOT_AUTHENTICATED';
 
+        try {
+            await conn.query('START TRANSACTION');
 
+            await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
 
-        await conn.query('UPDATE state SET value=0');
-        await conn.query('DELETE FROM classes');
-        await conn.query('DELETE FROM logos');
-        await conn.query('DELETE FROM tokens');
-        await conn.query('DELETE FROM batch');
-        await conn.query('ALTER TABLE logos AUTO_INCREMENT=1');
-        await conn.query('ALTER TABLE classes AUTO_INCREMENT=1');
+            await conn.query('UPDATE state SET value=0');
+            await conn.query('DELETE FROM classes');
+            await conn.query('DELETE FROM logos');
+            await conn.query('DELETE FROM tokens');
+            await conn.query('DELETE FROM batch');
+            await conn.query('ALTER TABLE logos AUTO_INCREMENT=1');
+            await conn.query('ALTER TABLE classes AUTO_INCREMENT=1');
 
-        let directory = config.pdfGeneration.pdfLocation;
-        fs.readdir(directory, (err, files) => {
-            if (err) throw err;
+            let directory = config.pdfGeneration.pdfLocation;
+            fs.readdir(directory, (err, files) => {
+                if (err) throw err;
 
-            for (const file of files) {
-                fs.unlink(path.join(directory, file), (err) => {
-                    if (err) throw err;
-                });
-            }
-        });
-
-        res.code(202).send();
-
+                for (const file of files) {
+                    fs.unlink(path.join(directory, file), (err) => {
+                        if (err) throw err;
+                    });
+                }
+            });
+            res.code(202).send();
+            await conn.query('COMMIT');
+        } catch (exception) {
+            await conn.query('ROLLBACK');
+            throw exception;
+        }
     } catch (exception) {
         fastify.log.error('Reset all procedure failed with exception ' + exception);
         switch (exception) {
@@ -449,9 +467,21 @@ fastify.post('/api/admin/setup/provision', async (req, res) => {
             await conn.query('INSERT INTO classes (uuid, name) VALUES (?, ?)', [classUuid, classObject.class]);
             for (let j = 0; j < classObject.logos.length; j++) await conn.query('INSERT INTO logos (number, class) VALUES (?, ?)', [classObject.logos[j], classUuid]);
         }
-        await conn.query('UPDATE state SET value=1 WHERE id=\'provisioned\'');
-        fastify.log.info('Provision procedure succesfull');
-        res.code(201).send();
+
+        try {
+            await conn.query('START TRANSACTION');
+            await conn.query('UPDATE state SET value=1 WHERE id=\'provisioned\'');
+            fastify.log.info('Provision procedure succesfull');
+            await conn.query('COMMIT');
+            res.code(201).send();
+        } catch (exception) {
+            fastify.log.error('Error provisioning ' + exception);
+            await conn.query('ROLLBACK');
+            throw exception;
+        }
+
+
+
 
     } catch (exception) {
         fastify.log.error('Provision procedure failed with exception ' + exception);
@@ -717,22 +747,33 @@ fastify.delete('/api/admin/tokens/revoke/*', async (req, res) => {
             }
         fastify.log.info('Revoking tokens and reverting votes');
 
-        for (let i = 0; i < votesToRevoke.length; i++)
-            await conn.query('UPDATE logos SET points=points+? WHERE number=?', [votesToRevoke[i].points * -1, votesToRevoke[i].logo]);
-        console.log('revoking numbers');
-        for (let i = 0; i < votesToRevoke.length; i++)
-            await conn.query('UPDATE logos SET pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '-1 WHERE number=?', [
-                votesToRevoke[i].logo]);
-        console.log('revoked numbers');
-        await conn.query('DELETE FROM batch WHERE batchUuid=?', batchUuid);
+        try {
+            await conn.query('START TRANSACTION');
+            for (let i = 0; i < votesToRevoke.length; i++)
+                await conn.query('UPDATE logos SET points=points+? WHERE number=?', [votesToRevoke[i].points * -1, votesToRevoke[i].logo]);
+            console.log('revoking numbers');
+            for (let i = 0; i < votesToRevoke.length; i++)
+                await conn.query('UPDATE logos SET pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '-1 WHERE number=?', [
+                    votesToRevoke[i].logo]);
+            console.log('revoked numbers');
+            await conn.query('DELETE FROM batch WHERE batchUuid=?', batchUuid);
 
-        fs.unlink(path.join(config.pdfGeneration.pdfLocation, batchUuid + '.pdf'), (err) => {
-            if (err) throw err;
-        });
+            fs.unlink(path.join(config.pdfGeneration.pdfLocation, batchUuid + '.pdf'), (err) => {
+                if (err) throw err;
+            });
 
 
 
-        res.code(202).send();
+            await conn.query('COMMIT');
+            res.code(202).send();
+        } catch (exception) {
+            fastify.log.error('Error revoking tokens ' + exception);
+            await conn.query('ROLLBACK');
+            throw exception;
+        }
+
+
+
     } catch (exception) {
         fastify.log.error('Tokens revoke procedure failed with exception ' + exception);
         switch (exception) {
@@ -796,9 +837,18 @@ fastify.post('/api/admin/voting/start', async (req, res) => {
         let provisioned = (await conn.query('SELECT value FROM state WHERE id=\'provisioned\''))[0].value == 1;
         if (!provisioned) throw 'NOT_PROVISIONED';
 
-        await conn.query('UPDATE state SET value=1 WHERE id=\'voting\'');
-        fastify.log.info('Voting start procedure succesfull');
-        res.code(200).send();
+        try {
+            await conn.query('START TRANSACTION');
+            await conn.query('UPDATE state SET value=1 WHERE id=\'voting\'');
+            fastify.log.info('Voting start procedure succesfull');
+
+            await conn.query('COMMIT');
+            res.code(202).send();
+        } catch (exception) {
+            fastify.log.error('Error starting voting ' + exception);
+            await conn.query('ROLLBACK');
+        }
+
     } catch (exception) {
         fastify.log.error('Starting voting failed with exception ' + exception);
         switch (exception) {
@@ -822,9 +872,18 @@ fastify.post('/api/admin/voting/stop', async (req, res) => {
         let provisioned = (await conn.query('SELECT value FROM state WHERE id=\'provisioned\''))[0].value == 1;
         if (!provisioned) throw 'NOT_PROVISIONED';
 
-        await conn.query('UPDATE state SET value=0 WHERE id=\'voting\'');
-        fastify.log.info('Voting stop procedure succesfull');
-        res.code(200).send();
+        try {
+            await conn.query('START TRANSACTION');
+            await conn.query('UPDATE state SET value=0 WHERE id=\'voting\'');
+            fastify.log.info('Voting stop procedure succesfull');
+
+            await conn.query('COMMIT');
+            res.code(202).send();
+        } catch (exception) {
+            fastify.log.error('Error stoping voting ' + exception);
+            await conn.query('ROLLBACK');
+        }
+
     } catch (exception) {
         fastify.log.error('Stopping voting failed with exception ' + exception);
         switch (exception) {
@@ -1114,14 +1173,21 @@ fastify.post('/api/user/vote', async (req, res) => {
             logosSet.add(vote.votes[i].logo);
         }
         //vote is correct, store it and count points;
-        let userVote = JSON.stringify(vote.votes);
-        await conn.query('UPDATE tokens SET vote=? WHERE token=?', [userVote, vote.token])
-        for (let i = 0; i < vote.votes.length; i++)
-            await conn.query('UPDATE logos SET points=points+? WHERE number=?', [vote.votes[i].points, vote.votes[i].logo]);
-        for (let i = 0; i < vote.votes.length; i++)
-            await conn.query('UPDATE logos SET pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '+1 WHERE number=?', [
-                vote.votes[i].logo]);
-        res.code(200).send();
+        try {
+            await conn.query('START TRANSACTION');
+            let userVote = JSON.stringify(vote.votes);
+            await conn.query('UPDATE tokens SET vote=? WHERE token=?', [userVote, vote.token])
+            for (let i = 0; i < vote.votes.length; i++)
+                await conn.query('UPDATE logos SET points=points+? WHERE number=?', [vote.votes[i].points, vote.votes[i].logo]);
+            for (let i = 0; i < vote.votes.length; i++)
+                await conn.query('UPDATE logos SET pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '+1 WHERE number=?', [
+                    vote.votes[i].logo]);
+            await conn.query('COMMIT');
+            res.code(202).send();
+        } catch (exception) {
+            await conn.query('ROLLBACK');
+            throw exception;
+        }
     } catch (exception) {
         fastify.log.error('Logos get procedure failed with exception ' + exception);
         switch (exception) {
@@ -1157,10 +1223,17 @@ let verifyToken = (token) => {
         if (sessions[object.uuid] && sessions[object.uuid][object.nonce]) return object;
         return null;
     }
-    else return environment == '--test' ? null : 'TEST_ONLY';
+    else return environment == '--test' ? 'TEST_ONLY' : null;
 }
 async function saveSessions() {
-    await conn.query('UPDATE sessions SET value=? WHERE id=\'sessions\'', JSON.stringify(sessions));
+    try {
+        await conn.query('START TRANSACTION');
+        await conn.query('UPDATE sessions SET value=? WHERE id=\'sessions\'', JSON.stringify(sessions));
+        await conn.query('COMMIT');
+    } catch (exception) {
+        fastify.log.error('Error saving sessions ' + exception);
+        await conn.query('ROLLBACK');
+    }
 }
 
 
