@@ -391,8 +391,6 @@ fastify.delete('/api/admin/setup/resetall', async (req, res) => {
         try {
             await conn.query('START TRANSACTION');
 
-            await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
-
             await conn.query('UPDATE state SET value=0');
             await conn.query('DELETE FROM classes');
             await conn.query('DELETE FROM logos');
@@ -905,7 +903,7 @@ fastify.get('/api/admin/voting/results/get', async (req, res) => {
         fastify.log.info('Starting results get procedure');
         if (!verifyToken(req.cookies.token)) throw 'USER_NOT_AUTHENTICATED';
 
-        let resultsResponse = await conn.query('SELECT * FROM logos ORDER BY points DESC');
+        let resultsResponse = await conn.query('SELECT * FROM logos ORDER BY points DESC, number');
 
         let classesList = await conn.query('SELECT * FROM classes');
         let classes = {};
@@ -918,7 +916,7 @@ fastify.get('/api/admin/voting/results/get', async (req, res) => {
             cnt[pointsResponse[i].points] = (cnt[pointsResponse[i].points]) ? cnt[pointsResponse[i].points] + 1 : 1;
 
         }
-        let pnts = await conn.query('SELECT points FROM logos GROUP BY points ORDER BY points DESC')
+        let pnts = await conn.query('SELECT points FROM logos GROUP BY points ORDER BY points DESC, number')
         for (let i = 0; i < pnts.length; i++) {
             ranking[pnts[i].points] = count;
             count += cnt[pnts[i].points];
