@@ -1151,6 +1151,7 @@ fastify.post('/api/user/vote', async (req, res) => {
         if (tokenResponse.length == 0) throw 'INVALID_TOKEN';
         if (tokenResponse[0].vote != null) throw 'TOKEN_ALREADY_USED';
 
+        fastify.log.info('Now starting voting for token ' + vote.token)
         //check if user has not modified points to maybe add 1000 to their favorite logo
         let votedPoints = [];
         for (let i = 0; i < vote.votes.length; i++)votedPoints.push(vote.votes[i].points);
@@ -1158,6 +1159,8 @@ fastify.post('/api/user/vote', async (req, res) => {
 
         if (votedPoints.length != config.allowedPoints.length) throw 'INVALID_VOTE_POINTS';
         for (let i = 0; i < votedPoints.length; i++)if (votedPoints[i] != config.allowedPoints[i]) throw 'INVALID_VOTE_POINTS';
+        fastify.log.info('User vote points correct for token ' + vote.token);
+
 
         //check if user has chosen correct logos
         let allowedLogosList = await conn.query('SELECT number FROM logos WHERE class!=?', [tokenResponse[0].class]);
@@ -1165,15 +1168,17 @@ fastify.post('/api/user/vote', async (req, res) => {
         for (let i = 0; i < allowedLogosList.length; i++)allowedLogos.add(allowedLogosList[i].number);
         for (let i = 0; i < vote.votes.length; i++)
             if (!allowedLogos.has(vote.votes[i].logo)) throw 'LOGO_NOT_ALLOWED';
-
+        fastify.log.info('User logos numbers correct for token ' + vote.token);
         //check if user does not cast multiple votes for the same logo
         let logosSet = new Set();
         for (let i = 0; i < vote.votes.length; i++) {
             if (logosSet.has(vote.votes[i].logo)) throw 'DUPLICATE_VOTE_FOR_SAME_LOGO';
             logosSet.add(vote.votes[i].logo);
         }
+        fastify.log.info('User did not vote duplicate logos with token ' + vote.token);
         //vote is correct, store it and count points;
         try {
+            fastify.log.info('User vote correct,  now storing in DB for token ' + vote.token);
             await conn.query('START TRANSACTION');
             let userVote = JSON.stringify(vote.votes);
             await conn.query('UPDATE tokens SET vote=? WHERE token=?', [userVote, vote.token])
@@ -1182,9 +1187,12 @@ fastify.post('/api/user/vote', async (req, res) => {
             for (let i = 0; i < vote.votes.length; i++)
                 await conn.query('UPDATE logos SET pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(vote.votes[i].points).toString() + (vote.votes[i].points > 0 ? 'pos' : 'neg') + '+1 WHERE number=?', [
                     vote.votes[i].logo]);
+            fastify.log.info('User vote stored, now commiting transaction for token ' + vote.token);
             await conn.query('COMMIT');
+            fastify.log.info('User voted succsfully, now sending 202 for token ' + vote.token);
             res.code(202).send();
         } catch (exception) {
+            fastify.log.error('Error storing vote for token ' + token + '. Now starting rollback. The exception was ' + exception);
             await conn.query('ROLLBACK');
             throw exception;
         }
