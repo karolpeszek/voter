@@ -235,9 +235,21 @@ fastify.put('/api/admin/users/add', async (req, res) => {
         sessions[uuid] = {};
         saveSessions();
 
-        await conn.query('INSERT INTO admins (uuid, email, name, hash) VALUES (?, ?, ?, ?)', [uuid, user.email, user.username, salt + ':' + userHash]);
-        fastify.log.info('User add procedure succesfull');
-        res.code(201).send();
+
+        try {
+            await conn.query('START TRANSACTION');
+
+            await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
+
+            await conn.query('INSERT INTO admins (uuid, email, name, hash) VALUES (?, ?, ?, ?)', [uuid, user.email, user.username, salt + ':' + userHash]);
+            fastify.log.info('User add procedure succesfull');
+
+            await conn.query('COMMIT');
+            res.code(201).send();
+        } catch (exception) {
+            await conn.query('ROLLBACK');
+            throw exception
+        }
     } catch (exception) {
         fastify.log.error('User add procedure failed with exception ' + exception);
         switch (exception) {
@@ -345,8 +357,8 @@ fastify.patch('/api/admin/users/setpassword', async (req, res) => {
             sessions[user.uuid] = {};
             saveSessions();
             fastify.log.info('User password set procedure succesfull');
-            res.code(202).send();
             await conn.query('COMMIT');
+            res.code(202).send();
         } catch (exception) {
             await conn.query('ROLLBACK');
             throw exception
@@ -405,8 +417,9 @@ fastify.delete('/api/admin/setup/resetall', async (req, res) => {
                     });
                 }
             });
-            res.code(202).send();
+
             await conn.query('COMMIT');
+            res.code(202).send();
         } catch (exception) {
             await conn.query('ROLLBACK');
             throw exception;
@@ -455,15 +468,15 @@ fastify.post('/api/admin/setup/provision', async (req, res) => {
             if (classes.has(list[i].class)) throw 'CLASSES_SAME_NAME_ERROR';
             classes.add(list[i].class);
         }
-        for (let i = 0; i < list.length; i++) {
-            const classObject = list[i];
-            let classUuid = getUuid(classObject.class + classObject.logos + crypto.randomBytes(32).toString());
-            await conn.query('INSERT INTO classes (uuid, name) VALUES (?, ?)', [classUuid, classObject.class]);
-            for (let j = 0; j < classObject.logos.length; j++) await conn.query('INSERT INTO logos (number, class) VALUES (?, ?)', [classObject.logos[j], classUuid]);
-        }
 
         try {
             await conn.query('START TRANSACTION');
+            for (let i = 0; i < list.length; i++) {
+                const classObject = list[i];
+                let classUuid = getUuid(classObject.class + classObject.logos + crypto.randomBytes(32).toString());
+                await conn.query('INSERT INTO classes (uuid, name) VALUES (?, ?)', [classUuid, classObject.class]);
+                for (let j = 0; j < classObject.logos.length; j++) await conn.query('INSERT INTO logos (number, class) VALUES (?, ?)', [classObject.logos[j], classUuid]);
+            }
             await conn.query('UPDATE state SET value=1 WHERE id=\'provisioned\'');
             fastify.log.info('Provision procedure succesfull');
             await conn.query('COMMIT');
@@ -602,10 +615,6 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
         let currentTimeStamp = Math.round(Date.now() / 1000);
         let batchUuid = getUuid(crypto.createHash('sha512').update(Date.now().toString()).digest('base64'));
 
-        for (let it = 0; it < newTokens.length; it++)
-            await conn.query('INSERT INTO tokens (token, batchUuid, class) VALUES (?, ?, ?)', [newTokens[it], batchUuid, generateInfo.class])
-
-        await conn.query('INSERT INTO batch (batchUuid, timestamp, class, number) VALUES (?, ?, ?, ?)', [batchUuid, currentTimeStamp, generateInfo.class, newTokens.length]);
 
         //generate pdf file
 
@@ -656,14 +665,33 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
             throw 'PDF_GENERATION_ISSUE_CHECK_LOG'
         }
 
-        res.code(201).send({
-            batchUuid: batchUuid,
-            timestamp: currentTimeStamp,
-            class: generateInfo.class,
-            className: className,
-            pdfUrl: config.pdfGeneration.pdfLink.replace('{{uuid}}', batchUuid),
-            tokens: newTokens
-        });
+        try {
+            await conn.query('START TRANSACTION');
+
+            for (let it = 0; it < newTokens.length; it++)
+                await conn.query('INSERT INTO tokens (token, batchUuid, class) VALUES (?, ?, ?)', [newTokens[it], batchUuid, generateInfo.class])
+
+            await conn.query('INSERT INTO batch (batchUuid, timestamp, class, number) VALUES (?, ?, ?, ?)', [batchUuid, currentTimeStamp, generateInfo.class, newTokens.length]);
+
+            fastify.log.info('Tokens generate procedure succesfull');
+            await conn.query('COMMIT');
+            res.code(201).send({
+                batchUuid: batchUuid,
+                timestamp: currentTimeStamp,
+                class: generateInfo.class,
+                className: className,
+                pdfUrl: config.pdfGeneration.pdfLink.replace('{{uuid}}', batchUuid),
+                tokens: newTokens
+            });
+        } catch (exception) {
+            await conn.query('ROLLBACK');
+            throw exception
+        }
+
+
+
+
+
     } catch (exception) {
         fastify.log.error('Generate tokens procedure failed with exception ' + exception);
         switch (exception) {
