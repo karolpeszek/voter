@@ -38,12 +38,40 @@ body {
 }
 
 .cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+.cell.cell--has-test .cell__content {
+    padding: 2mm 4mm 1mm;
+}
+
+.cell__test {
+    height: 4mm;
+    line-height: 4mm;
+    font-size: 7pt;
+    text-align: center;
+    color: #a00;
+    padding-bottom: 1mm;
+}
+
+.cell__test b {
+    font-size: 7.5pt;
+}
+
+.cell__content {
+    flex-grow: 1;
+    width: 100%;
+    box-sizing: border-box;
     overflow: hidden;
     display: flex;
     flex-direction: row;
     font-size: 7.6pt;
     text-align: center;
     padding: 4mm;
+    flex-wrap: nowrap;
 }
 
 .cell__left {
@@ -52,6 +80,7 @@ body {
     flex-direction: column;
     align-items: center;
     box-sizing: border-box;
+    flex-wrap: nowrap;
 }
 
 .cell__scan-code {
@@ -68,6 +97,7 @@ body {
     flex-direction: column;
     justify-content: space-between;
     flex-grow: 1;
+    flex-wrap: nowrap;
 }
 
 .cell__or {
@@ -78,6 +108,7 @@ body {
     margin-left: 5mm;
     margin-bottom: 0.5mm;
     align-items: center;
+    flex-wrap: nowrap;
 }
 
 .cell__or-rule {
@@ -139,4 +170,8 @@ hr {
         height: 297mm;
         box-shadow: 2px 2px 5px #0003;
     }
+}
+
+.blur {
+    filter: blur(1mm);
 }

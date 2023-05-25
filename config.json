@@ -15,6 +15,7 @@
         "1234-DEMO",
         "GOOD-LOOD"
     ],
+    "suggestedVoting": true,
     "cors": {
         "origin": true,
         "credentials": true,

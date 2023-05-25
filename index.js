@@ -1,8 +1,4 @@
 const environment = process.argv[2] || '--prod';
-if (environment != '--test' && environment != '--prod') {
-    console.log('No mode specified');
-    process.exit(1);
-}
 
 
 const secrets = require(__dirname + "/secrets.json");
@@ -617,12 +613,22 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
             }&format=svg&margin=0&ecc=M`;
 
         let tokenList = [];
-        for (let i = 0; i < newTokens.length; i++)
+        const isTestingEnabled = (environment == '--test' && config.suggestedVoting);
+        for (let i = 0; i < newTokens.length; i++) {
+            let shuff = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(value => ({ value, sort: Math.random() })).sort((a, b) => a.sort - b.sort).map(({ value }) => value);
             tokenList.push({
                 token: newTokens[i],
                 qrSrc: getQrSrc(newTokens[i]),
+                test: isTestingEnabled ? {
+                    points5: shuff[2],
+                    points3: shuff[1],
+                    points1: shuff[3],
+                    pointsNeg1: shuff[7]
+                } : undefined,
+                blurQr: isTestingEnabled && (shuff[0] % 3) == 1,
+                blurToken: isTestingEnabled && (shuff[0] % 3) == 2
             });
-
+        }
         try {
             let renderClass = [{
                 className: className,
@@ -630,7 +636,6 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
             }];
 
             let renderedHtml = renderHTML(renderClass);
-
             const browser = await puppeteer.launch({ executablePath: config.pdfGeneration.chromiumPath, headless: 'new' });
             const page = await browser.newPage();
             fastify.log.info('Browser launched!')
@@ -749,11 +754,9 @@ fastify.delete('/api/admin/tokens/revoke/*', async (req, res) => {
             await conn.query('START TRANSACTION');
             for (let i = 0; i < votesToRevoke.length; i++)
                 await conn.query('UPDATE logos SET points=points+? WHERE number=?', [votesToRevoke[i].points * -1, votesToRevoke[i].logo]);
-            console.log('revoking numbers');
             for (let i = 0; i < votesToRevoke.length; i++)
                 await conn.query('UPDATE logos SET pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '=pointsCounter' + Math.abs(votesToRevoke[i].points).toString() + (votesToRevoke[i].points > 0 ? 'pos' : 'neg') + '-1 WHERE number=?', [
                     votesToRevoke[i].logo]);
-            console.log('revoked numbers');
             await conn.query('DELETE FROM batch WHERE batchUuid=?', batchUuid);
 
             fs.unlink(path.join(config.pdfGeneration.pdfLocation, batchUuid + '.pdf'), (err) => {
