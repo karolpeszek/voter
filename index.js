@@ -1093,6 +1093,8 @@ fastify.get('/api/admin/classes/get', async (req, res) => {
 fastify.get('/api/user/getinfo', async (req, res) => {
     try {
         let token = new URL('https://example.com' + req.url).searchParams.get('token');
+        let includePanTadeusz = new URL('https://example.com' + req.url).searchParams.get('panTadeusz') == 'true';
+        console.log(includePanTadeusz);
         if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(token)) token = 'xxxxxxxxxxxx';
         fastify.log.info('Starting vote info get procedure for token=', token);
 
@@ -1129,14 +1131,16 @@ fastify.get('/api/user/getinfo', async (req, res) => {
                 voting: voting,
                 found: found,
                 goodlood: "jeszcze jak!",
-                message: config.message
+                message: config.message,
+                panTadeusz: includePanTadeusz ? config.panTadeusz : config.panTadeuszMessage
             }
         else
             responseObject = {
                 provisioned: provisioned,
                 voting: voting,
                 goodlood: "jeszcze jak!",
-                message: config.message
+                message: config.message,
+                panTadeusz: includePanTadeusz ? config.panTadeusz : config.panTadeuszMessage
             };
 
         if (found) {

@@ -4,8 +4,12 @@ mixin page(page)
     .page
         .header
             div
-                | Kody do głosowania dla klasy#{' '}
-                b=page.className
+                if page.className
+                    | Kody do głosowania dla klasy#{' '}
+                    b=page.className
+                else
+                    | Kody do głosowania#{' '}
+                    b bez klasy
             div.header__no-photocopy Nie kseruj tej kartki, kody są jednorazowe
         each cell in page.tokens
             +cell(cell, page.className)
