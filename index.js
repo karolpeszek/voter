@@ -638,7 +638,7 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
         }
         try {
             let renderClass = [{
-                className: generateInfo.class == '00000000-0000-0000-0000-000000000000' ? 'BEZ KLASY' : className,
+                className: className,
                 tokens: tokenList
             }];
 
@@ -1014,7 +1014,7 @@ fastify.get('/api/admin/voting/results/results.csv', async (req, res) => {
             count += cnt[pnts[i].points];
         }
 
-        let csvString = '"Miejsce","Klasa","Numer logotypu","Liczba punktów"';
+        let csvString = 'sep=,\n"Miejsce","Klasa","Numer logotypu","Liczba punktów"';
         for (let i = 0; i < config.allowedPoints.length; i++)
             csvString += ',"Pnkt ' + config.allowedPoints[i] + '"';
         csvString += '\n';
@@ -1034,7 +1034,7 @@ fastify.get('/api/admin/voting/results/results.csv', async (req, res) => {
         fastify.log.info('Results get csv procedure succesfull');
         res.code(200)
             .header('Content-Type', 'application/CSV; charset=utf-8')
-            .header('Content-Disposition', 'attachment;filename=Wyniki.csv')
+            .header('Content-Disposition', `attachment;filename="Wyniki-${(new Date).toJSON()}.csv"`)
             .send(csvString);
 
     } catch (exception) {

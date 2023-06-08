@@ -16,12 +16,15 @@ mixin cell(cell, className)
                     .cell__token(class=(cell.blurToken ? 'blur' : ''))=cell.token
                 hr
                 .cell__class
-                    | Twoja klasa:#{' '}
-                    b=className
+                    if className
+                        | Twoja klasa:#{' '}
+                        b=className
+                    else
+                        | Głosowanie bez klasy
         if cell.test
             .cell__test
                 b ZAGŁOSUJ:#{' '}
-                | 5pkt:#{' '}
+                | 5pkt: logo #{' '}
                 b=cell.test.points5
                 | , 3pkt:#{' '}
                 b=cell.test.points3
