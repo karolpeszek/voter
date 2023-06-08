@@ -239,8 +239,6 @@ fastify.put('/api/admin/users/add', async (req, res) => {
         try {
             await conn.query('START TRANSACTION');
 
-            await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
-
             await conn.query('INSERT INTO admins (uuid, email, name, hash) VALUES (?, ?, ?, ?)', [uuid, user.email, user.username, salt + ':' + userHash]);
             fastify.log.info('User add procedure succesfull');
 
@@ -569,8 +567,8 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
         // check if class uuid exists
 
         let classResponse = await conn.query('SELECT uuid, name FROM classes WHERE uuid=?', [generateInfo.class]);
-        if (classResponse.length == 0) throw 'CLASS_UUID_UNKNOWN';
-        let className = classResponse[0].name;
+        if (classResponse.length == 0 && generateInfo.class != '00000000-0000-0000-0000-000000000000') throw 'CLASS_UUID_UNKNOWN';
+        let className = (generateInfo.class != '00000000-0000-0000-0000-000000000000') ? classResponse[0].name : null;
 
         //check if every class uuid exists and also compute how much tokens we have to create
 
@@ -640,7 +638,7 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
         }
         try {
             let renderClass = [{
-                className: className,
+                className: generateInfo.class == '00000000-0000-0000-0000-000000000000' ? 'BEZ KLASY' : className,
                 tokens: tokenList
             }];
 
@@ -730,7 +728,7 @@ fastify.get('/api/admin/tokens/get', async (req, res) => {
                     token: tokensResponse[j].token,
                     used: tokensResponse[j].vote != null
                 });
-            let className = (await conn.query('SELECT name FROM classes WHERE uuid=?', batches[i].class))[0].name
+            let className = ((await conn.query('SELECT name FROM classes WHERE uuid=?', batches[i].class))[0] || { name: null }).name
             listToReturn.push({
                 batchUuid: batchUuid,
                 timestamp: batches[i].timestamp,
@@ -1113,7 +1111,7 @@ fastify.get('/api/user/getinfo', async (req, res) => {
                 let tokenObject = tokenResponse[0];
                 found = true;
                 used = tokenObject.vote != null;
-                codeClass = (await conn.query('SELECT name FROM classes WHERE uuid=?', [tokenObject.class]))[0].name;
+                codeClass = ((await conn.query('SELECT name FROM classes WHERE uuid=?', [tokenObject.class]))[0] || { name: null }).name;
                 let logos = await conn.query('SELECT number, class FROM logos ORDER BY number');
                 for (let i = 0; i < logos.length; i++) {
                     if (logos[i].class == tokenObject.class)
