@@ -17,7 +17,7 @@ const puppeteer = require('puppeteer');
 
 
 let conn = null;
-let sessions = null;
+let sessions = {};
 
 fastify.register(require('@fastify/cookie'), {
     secret: secrets.sessionKey,
@@ -31,7 +31,9 @@ const start = async () => {
         conn = await mariadb.createConnection(config.sql);
         await conn.query('USE ' + config.sql.database);
         await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
-        sessions = JSON.parse((await conn.query('SELECT value FROM sessions WHERE id=\'sessions\''))[0].value);
+	const users = await conn.query('SELECT uuid FROM admins');
+	for(let i=0; i<users.length; i++)
+		sessions[users[i].uuid]={};
         fastify.log.info('Starting server on port', config.port);
         await fastify.listen({ port: config.port })
 
