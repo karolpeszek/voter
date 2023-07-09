@@ -87,7 +87,7 @@ fastify.post('/api/admin/login', async (req, res) => {
         }
 
         sessions[user.uuid][tokenObject.nonce] = tokenObject;
-        saveSessions();
+        
         //sign the token and send it to the user
         let token = res.signCookie(JSON.stringify(tokenObject));
         fastify.log.info('Issuing cookie to user', token);
@@ -121,7 +121,7 @@ fastify.post('/api/admin/logout', (req, res) => {
             let userObject = verifyToken(req.cookies.token);
             if (userObject)
                 delete (sessions[userObject.uuid][userObject.nonce]);
-            saveSessions();
+            
         } catch (exception) {
             fastify.log.error('Error deleting cookie from sessions');
         }
@@ -139,7 +139,7 @@ fastify.post('/api/admin/logoutall', (req, res) => {
         let userObject = verifyToken(req.cookies.token);
         if (!userObject || userObject == 'TEST_ONLY') throw 'USER_NOT_AUTHENTICATED';
         sessions[userObject.uuid] = {};
-        saveSessions();
+        
 
 
         fastify.log.info('Logging out an adminall.');
@@ -156,7 +156,7 @@ fastify.post('/api/admin/logoutallall', (req, res) => {
         let userObject = verifyToken(req.cookies.token);
         if (!userObject || userObject == 'TEST_ONLY') throw 'USER_NOT_AUTHENTICATED';
         for (const uuid in sessions) sessions[uuid] = {};
-        saveSessions();
+        
 
 
         fastify.log.info('Logging out an adminallall.');
@@ -233,7 +233,7 @@ fastify.put('/api/admin/users/add', async (req, res) => {
         if (users.length > 0) throw 'USERNAME_OR_EMAIL_TAKEN';
 
         sessions[uuid] = {};
-        saveSessions();
+        
 
 
         try {
@@ -301,7 +301,7 @@ fastify.delete('/api/admin/users/delete/*', async (req, res) => {
 
         if (sessions[uuid])
             delete (sessions[uuid]);
-        saveSessions();
+        
 
         fastify.log.info('User delete procedure succesfull');
 
@@ -353,7 +353,7 @@ fastify.patch('/api/admin/users/setpassword', async (req, res) => {
             await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
 
             sessions[user.uuid] = {};
-            saveSessions();
+            
             fastify.log.info('User password set procedure succesfull');
             await conn.query('COMMIT');
             res.code(202).send();
@@ -1264,16 +1264,5 @@ let verifyToken = (token) => {
     }
     else return environment == '--test' ? 'TEST_ONLY' : null;
 }
-async function saveSessions() {
-    try {
-        await conn.query('START TRANSACTION');
-        await conn.query('UPDATE sessions SET value=? WHERE id=\'sessions\'', JSON.stringify(sessions));
-        await conn.query('COMMIT');
-    } catch (exception) {
-        fastify.log.error('Error saving sessions ' + exception);
-        await conn.query('ROLLBACK');
-    }
-}
 
-
-start()
+start();
