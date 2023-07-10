@@ -1,7 +1,7 @@
 const pug = require('pug');
 const _ = require('lodash');
 
-const config = require(__dirname + "/config.json")
+const config = require("/config/config.json")
 
 const cardsPerPage = config.pdfGeneration.cardsPerPage;
 
