@@ -5,7 +5,7 @@ const secrets = require("/config/secrets.json");
 const config = require("/config/config.json");
 
 
-const fastify = require('fastify')({ logger: environment == '--test' })
+const fastify = require('fastify')({ logger: true })
 const mariadb = require('mariadb');
 const getUuid = require('uuid-by-string');
 const crypto = require('crypto');
