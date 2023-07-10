@@ -3,11 +3,11 @@
     "sql": {
         "host": "localhost",
         "user": "voter",
-        "password": "XBEgDbCJ7mw5STlINtnAgAfr1SxN",
+        "password": "your-secret-password",
         "connectionLimit": 5,
         "database": "voter"
     },
-    "port": 7878,
+    "port": 5000,
     "allowedPoints": [
         -1,
         1,

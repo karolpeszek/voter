@@ -1,8 +1,8 @@
 const environment = process.argv[2] || '--prod';
 
 
-const secrets = require(__dirname + "/secrets.json");
-const config = require(__dirname + "/config.json");
+const secrets = require("/config/secrets.json");
+const config = require("/config/config.json");
 
 
 const fastify = require('fastify')({ logger: environment == '--test' })
