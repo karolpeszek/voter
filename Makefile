@@ -3,4 +3,4 @@ build:
 run:
 	sudo docker run --net=host -v /etc/config:/config -d karolpeszek/voter:latest
 clean:
-	sudo docker image rm karolpeszek/voter
+	sudo docker image rm karolpeszek/voter:latest
