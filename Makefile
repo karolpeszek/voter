@@ -1,5 +1,5 @@
 build:
-	sudo docker buildx build --platform=linux/amd64,linux/arm64 -t karolpeszek/voterlatest . --push
+	sudo docker build -t karolpeszek/voterlatest . --push
 run:
 	sudo docker run --net=host -v /etc/config:/config --restart unless-stopped -d karolpeszek/voter:latest
 clean:
