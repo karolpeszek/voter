@@ -1,6 +1,4 @@
 const environment = process.argv[2] || '--prod';
-
-
 const secrets = require("/config/secrets.json");
 const config = require("/config/config.json");
 
@@ -28,13 +26,13 @@ fastify.register(require('@fastify/cors'), config.cors);
 
 const start = async () => {
     try {
-        conn = await mariadb.createConnection(config.sql);
+        conn = await mariadb.createPool(config.sql);
         await conn.query('USE ' + config.sql.database);
         await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 	const users = await conn.query('SELECT uuid FROM admins');
 	for(let i=0; i<users.length; i++)
 		sessions[users[i].uuid]={};
-        fastify.log.info('Starting server on port', config.port);
+        fastify.log.info('Starting server on port ', config.port);
         await fastify.listen({ port: config.port })
 
     } catch (err) {
@@ -645,7 +643,7 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
             }];
 
             let renderedHtml = renderHTML(renderClass);
-            const browser = await puppeteer.launch({ args: ["--no-sandbox"], executablePath: config.pdfGeneration.chromiumPath, headless: 'new' });
+            const browser = await puppeteer.launch({ executablePath: config.pdfGeneration.chromiumPath, headless: 'new' });
             const page = await browser.newPage();
             fastify.log.info('Browser launched!')
             await page.setContent(renderedHtml, { waitUntil: 'networkidle0' });
