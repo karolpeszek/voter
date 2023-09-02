@@ -643,7 +643,7 @@ fastify.post('/api/admin/tokens/generate', async (req, res) => {
             }];
 
             let renderedHtml = renderHTML(renderClass);
-            const browser = await puppeteer.launch({ executablePath: config.pdfGeneration.chromiumPath, headless: 'new' });
+            const browser = await puppeteer.launch({ executablePath: config.pdfGeneration.chromiumPath, headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
             const page = await browser.newPage();
             fastify.log.info('Browser launched!')
             await page.setContent(renderedHtml, { waitUntil: 'networkidle0' });
