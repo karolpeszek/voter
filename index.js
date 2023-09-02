@@ -26,7 +26,8 @@ fastify.register(require('@fastify/cors'), config.cors);
 
 const start = async () => {
     try {
-        conn = await mariadb.createPool(config.sql);
+        const pool = await mariadb.createPool(config.sql);
+	conn = pool.getConnection();
         await conn.query('USE ' + config.sql.database);
         await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 	const users = await conn.query('SELECT uuid FROM admins');
