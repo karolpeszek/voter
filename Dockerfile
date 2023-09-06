@@ -7,7 +7,7 @@ WORKDIR /voter
 COPY package*.json ./
 
 RUN apt-get update
-RUN apt-get install software-properties-common -y
+RUN apt-get install software-properties-common apt-utils -y
 RUN /usr/bin/add-apt-repository ppa:saiarcot895/chromium-dev -y
 RUN apt install -y gnupg curl
 
