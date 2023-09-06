@@ -24,12 +24,21 @@ fastify.register(require('@fastify/cookie'), {
 })
 fastify.register(require('@fastify/cors'), config.cors);
 
-const start = async () => {
-    try {
-        const pool = await mariadb.createPool(config.sql);
-	conn = await pool.getConnection({ idleTimeout: 0});
+async function connectDb(){
+	const pool = await mariadb.createPool(config.sql);
+        conn = await pool.getConnection({ idleTimeout: 0, keepAliveInitialDelay: 10000, enableKeepAlive: true});
+        conn.on('error', async function(err){
+                if (!err.fatal)return;
+                fastify.log.error('Connection to DB lost! Reconnecting now.');
+                await connectDb();
+        });
         await conn.query('USE ' + config.sql.database);
         await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+}
+
+const start = async () => {
+    try {
+	await connectDb();
 	const users = await conn.query('SELECT uuid FROM admins');
 	for(let i=0; i<users.length; i++)
 		sessions[users[i].uuid]={};
