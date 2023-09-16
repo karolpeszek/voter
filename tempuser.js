@@ -6,24 +6,16 @@ const config = require("/config/config.json");
 const secrets = require("/config/secrets.json");
 
 function generateHash(password, salt) {
-    let pepper = secrets.pepper;
+    let pepper = secrets.pepper, hash = secrets.hashInit;
     for (let i = 0; i < 100000; i++)
-        password = crypto.createHash('sha512').update(salt + password + pepper).digest('base64');
-    return password;
-}
-let verifyToken = (token) => {
-    if (token && fastify.unsignCookie(token).valid && JSON.parse(fastify.unsignCookie(token).value).admin) {
-        let object = JSON.parse(fastify.unsignCookie(token).value);
-        if (sessions[object.uuid] && sessions[object.uuid][object.nonce]) return object;
-        return null;
-    }
-    else return environment == '--test' ? 'TEST_ONLY' : null;
+        hash = crypto.createHash('sha512').update(salt).update(password).update(hash).update(pepper).digest('base64');
+    return hash;
 }
 
 async function newuser() {
     console.log('Starting temp user add procedure');
 
-    let conn = await mariadb.createPool(config.sql);
+    let conn = await (await mariadb.createPool(config.sql)).getConnection();
     await conn.query('USE ' + config.sql.database);
 
     const user = {
@@ -33,9 +25,8 @@ async function newuser() {
     }
 
     let salt = crypto.randomBytes(64).toString('base64');
-    let userHash = generateHash(user.password, salt);
-
-    let uuid = getUuid(crypto.createHash('sha512').update(userHash + user.username + user.email + user.password).digest('base64'));
+    let uuid = getUuid(crypto.randomBytes(64).toString('base64'));
+    let userHash = generateHash(user.password, salt + user.email + user.username + uuid);
 
 
     await conn.query('START TRANSACTION');

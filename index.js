@@ -24,24 +24,24 @@ fastify.register(require('@fastify/cookie'), {
 })
 fastify.register(require('@fastify/cors'), config.cors);
 
-async function connectDb(){
-	const pool = await mariadb.createPool(config.sql);
-        conn = await pool.getConnection({ idleTimeout: 0, keepAliveInitialDelay: 10000, enableKeepAlive: true});
-        conn.on('error', async function(err){
-                if (!err.fatal)return;
-                fastify.log.error('Connection to DB lost! Reconnecting now.');
-                await connectDb();
-        });
-        await conn.query('USE ' + config.sql.database);
-        await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+async function connectDb() {
+    const pool = await mariadb.createPool(config.sql);
+    conn = await pool.getConnection({ idleTimeout: 0, keepAliveInitialDelay: 10000, enableKeepAlive: true });
+    conn.on('error', async function (err) {
+        if (!err.fatal) return;
+        fastify.log.error('Connection to DB lost! Reconnecting now.');
+        await connectDb();
+    });
+    await conn.query('USE ' + config.sql.database);
+    await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 }
 
 const start = async () => {
     try {
-	await connectDb();
-	const users = await conn.query('SELECT uuid FROM admins');
-	for(let i=0; i<users.length; i++)
-		sessions[users[i].uuid]={};
+        await connectDb();
+        const users = await conn.query('SELECT uuid FROM admins');
+        for (let i = 0; i < users.length; i++)
+            sessions[users[i].uuid] = {};
         fastify.log.info('Starting server on port ', config.port);
         await fastify.listen({ port: config.port })
 
@@ -75,7 +75,7 @@ fastify.post('/api/admin/login', async (req, res) => {
 
         let [salt, hash] = user.hash.split(':');
         //compute hash from the password that was sent by the user
-        let userSentHash = generateHash(parsedUserData.password, salt);
+        let userSentHash = generateHash(parsedUserData.password, salt + user.email + user.name + user.uuid);
 
         //check if hashes match
         let match = crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(userSentHash));
@@ -97,7 +97,7 @@ fastify.post('/api/admin/login', async (req, res) => {
         }
 
         sessions[user.uuid][tokenObject.nonce] = tokenObject;
-        
+
         //sign the token and send it to the user
         let token = res.signCookie(JSON.stringify(tokenObject));
         fastify.log.info('Issuing cookie to user', token);
@@ -131,7 +131,7 @@ fastify.post('/api/admin/logout', (req, res) => {
             let userObject = verifyToken(req.cookies.token);
             if (userObject)
                 delete (sessions[userObject.uuid][userObject.nonce]);
-            
+
         } catch (exception) {
             fastify.log.error('Error deleting cookie from sessions');
         }
@@ -149,7 +149,7 @@ fastify.post('/api/admin/logoutall', (req, res) => {
         let userObject = verifyToken(req.cookies.token);
         if (!userObject || userObject == 'TEST_ONLY') throw 'USER_NOT_AUTHENTICATED';
         sessions[userObject.uuid] = {};
-        
+
 
 
         fastify.log.info('Logging out an adminall.');
@@ -166,7 +166,7 @@ fastify.post('/api/admin/logoutallall', (req, res) => {
         let userObject = verifyToken(req.cookies.token);
         if (!userObject || userObject == 'TEST_ONLY') throw 'USER_NOT_AUTHENTICATED';
         for (const uuid in sessions) sessions[uuid] = {};
-        
+
 
 
         fastify.log.info('Logging out an adminallall.');
@@ -235,15 +235,16 @@ fastify.put('/api/admin/users/add', async (req, res) => {
             throw 'INVALID_EMAIL_ADDRESS';
 
         let salt = crypto.randomBytes(64).toString('base64');
-        let userHash = generateHash(user.password, salt);
+        let uuid = getUuid(crypto.randomBytes(64).toString('base64'));
+        let userHash = generateHash(user.password, salt + user.email + user.username + uuid);
 
-        let uuid = getUuid(crypto.createHash('sha512').update(userHash + user.username + user.email + user.password).digest('base64'));
+
 
         let users = await conn.query('SELECT * FROM admins WHERE email=? OR name=?', [user.email, user.username]);
         if (users.length > 0) throw 'USERNAME_OR_EMAIL_TAKEN';
 
         sessions[uuid] = {};
-        
+
 
 
         try {
@@ -311,7 +312,7 @@ fastify.delete('/api/admin/users/delete/*', async (req, res) => {
 
         if (sessions[uuid])
             delete (sessions[uuid]);
-        
+
 
         fastify.log.info('User delete procedure succesfull');
 
@@ -355,7 +356,7 @@ fastify.patch('/api/admin/users/setpassword', async (req, res) => {
 
         let newSalt = crypto.randomBytes(64).toString('base64'); //Generate new salt, just for added security
 
-        let hash = generateHash(user.newPassword, newSalt);
+        let hash = generateHash(user.newPassword, newSalt + userResponse[0].email + userResponse[0].name + userResponse[0].uuid);
 
         try {
             await conn.query('START TRANSACTION');
@@ -363,7 +364,7 @@ fastify.patch('/api/admin/users/setpassword', async (req, res) => {
             await conn.query('UPDATE admins SET hash=? WHERE uuid=?', [newSalt + ':' + hash, user.uuid]);
 
             sessions[user.uuid] = {};
-            
+
             fastify.log.info('User password set procedure succesfull');
             await conn.query('COMMIT');
             res.code(202).send();
@@ -1261,10 +1262,11 @@ fastify.post('/api/user/vote', async (req, res) => {
 
 //OTHER BITS
 function generateHash(password, salt) {
-    let pepper = secrets.pepper;
+    let pepper = secrets.pepper, hash = secrets.hashInit;
+
     for (let i = 0; i < 100000; i++)
-        password = crypto.createHash('sha512').update(salt + password + pepper).digest('base64');
-    return password;
+        hash = crypto.createHash('sha512').update(salt).update(password).update(hash).update(pepper).digest('base64');
+    return hash;
 }
 let verifyToken = (token) => {
     if (token && fastify.unsignCookie(token).valid && JSON.parse(fastify.unsignCookie(token).value).admin) {
