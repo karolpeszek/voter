@@ -7,9 +7,8 @@ WORKDIR /voter
 COPY package*.json ./
 
 RUN apt-get update
-RUN apt-get install software-properties-common apt-utils -y
+RUN apt-get install software-properties-common gnupg curl -y
 RUN /usr/bin/add-apt-repository ppa:saiarcot895/chromium-dev -y
-RUN apt install -y gnupg curl
 
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
 RUN gpg --no-default-keyring --keyring /usr/share/keyrings/nodesource.gpg --list-keys
