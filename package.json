@@ -12,7 +12,7 @@
   "dependencies": {
     "@fastify/cookie": "^8.3.0",
     "@fastify/cors": "^8.2.1",
-    "fastify": "^4.17.0",
+    "fastify": "^4.28.1",
     "fs": "^0.0.1-security",
     "lodash": "^4.17.21",
     "mariadb": "^3.1.2",
